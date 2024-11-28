@@ -36,17 +36,17 @@ async function processLogo(logoBuffer, size) {
         let processedImage = sharp(logoBuffer);
 
         // Resize logo dengan background putih
-        processedImage = processedImage.resize(size * 0.12, size * 0.12, {
+        processedImage = processedImage.resize(size, size, {
             fit: 'contain',
             background: { r: 255, g: 255, b: 255, alpha: 1 }
         });
 
         // Tambah padding putih
         processedImage = processedImage.extend({
-            top: Math.floor(size * 0.2),
-            bottom: Math.floor(size * 0.2),
-            left: Math.floor(size * 0.2),
-            right: Math.floor(size * 0.2),
+            top: Math.floor(size * 0.15),
+            bottom: Math.floor(size * 0.15),
+            left: Math.floor(size * 0.15),
+            right: Math.floor(size * 0.15),
             background: { r: 255, g: 255, b: 255, alpha: 1 }
         });
 
@@ -180,16 +180,16 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
             try {
                 const qrImage = sharp(buffer);
                 const metadata = await qrImage.metadata();
-                const logoSize = Math.floor(metadata.width * 0.2); // Logo 20% dari QR
+                const logoSize = Math.floor(metadata.width * 0.35); // Logo 35% dari QR
 
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
-                // Buat area putih untuk logo
-                const whiteAreaSize = Math.floor(metadata.width);
+                // Buat area putih kotak untuk logo
+                const whiteSize = logoSize + 20; // Tambahkan 20 pixel padding di setiap sisi
                 const whiteSquare = await sharp({
                     create: {
-                        width: whiteAreaSize,
-                        height: whiteAreaSize,
+                        width: whiteSize,
+                        height: whiteSize,
                         channels: 4,
                         background: { r: 255, g: 255, b: 255, alpha: 1 }
                     }
@@ -197,18 +197,18 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
                 .png()
                 .toBuffer();
 
-                // Posisi logo dan area putih
+                // Posisi logo dan area putih kotak
                 const whitePosition = {
-                    left: 0,
-                    top: 0
+                    left: Math.floor((metadata.width - whiteSize) / 2),
+                    top: Math.floor((metadata.height - whiteSize) / 2)
                 };
 
                 const logoPosition = {
-                    left: Math.floor((metadata.width - logoSize) / 2),
-                    top: Math.floor((metadata.height - logoSize) / 2)
+                    left: Math.floor((whiteSize - logoSize) / 2),
+                    top: Math.floor((whiteSize - logoSize) / 2)
                 };
 
-                // Gabungkan QR, area putih, dan logo
+                // Gabungkan QR, area putih kotak, dan logo
                 finalQRBuffer = await sharp(buffer)
                     .composite([
                         {
