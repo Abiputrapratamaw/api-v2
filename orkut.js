@@ -149,20 +149,30 @@ async function elxyzFile(buffer) {
     });
 }
 
+// Tambahkan informasi transaksi ke QRIS
+function addTransactionInfoToQRIS(qrisString, amount, transactionId, expirationTime) {
+    const step1 = qrisString.slice(0, -4);
+    const step2 = step1.split("5802ID");
+
+    const amountString = amount.toString();
+    const amountData = "54" + ("0" + amountString.length).slice(-2) + amountString;
+    const transactionData = "5303" + transactionId;
+    const expirationData = "6304" + expirationTime.toISOString().slice(0, 16).replace('T', '').replace(/-/g, '').replace(/:/g, '');
+
+    const result = step2[0] + amountData + step2[1] + transactionData + expirationData + convertCRC16(step2[0] + amountData + step2[1] + transactionData + expirationData);
+    return result;
+}
+
 // Create QRIS dengan atau tanpa logo
 async function createQRIS(amount, customQRISCode, logoUrl = null) {
     try {
         let qrisData = customQRISCode;
-        qrisData = qrisData.slice(0, -4);
-        const step1 = qrisData.replace("010211", "010212");
-        const step2 = step1.split("5802ID");
+        const transactionId = generateTransactionId();
+        const expirationTime = generateExpirationTime();
 
-        amount = amount.toString();
-        let uang = "54" + ("0" + amount.length).slice(-2) + amount;
-        uang += "5802ID";
+        qrisData = addTransactionInfoToQRIS(qrisData, amount, transactionId, expirationTime);
 
-        const result = step2[0] + uang + step2[1] + convertCRC16(step2[0] + uang + step2[1]);
-        const buffer = await QRCode.toBuffer(result, qrOptions);
+        const buffer = await QRCode.toBuffer(qrisData, qrOptions);
         let finalQRBuffer = buffer;
 
         // Proses jika ada logo
@@ -171,11 +181,11 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
                 const qrImage = sharp(buffer);
                 const metadata = await qrImage.metadata();
                 const logoSize = Math.floor(metadata.width * 0.20); // Logo 20% dari QR
-                
+
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
                 // Buat area putih untuk logo
-                const whiteAreaSize = Math.floor(logoSize * 1.3);
+                const whiteAreaSize = Math.floor(logoSize * 1.2);
                 const whiteSquare = await sharp({
                     create: {
                         width: whiteAreaSize,
@@ -225,7 +235,9 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
 
         return {
             qrImage: uploadedFile,
-            qrString: result
+            qrString: qrisData,
+            transactionId: transactionId,
+            expirationTime: expirationTime
         };
     } catch (error) {
         throw new Error(`Gagal create QRIS: ${error.message}`);
