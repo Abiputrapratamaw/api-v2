@@ -180,12 +180,12 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
             try {
                 const qrImage = sharp(buffer);
                 const metadata = await qrImage.metadata();
-                const logoSize = Math.floor(metadata.width * 0.35); // Logo 35% dari QR
+                const logoSize = Math.floor(metadata.width * 0.30); // Logo 30% dari QR
 
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
                 // Buat area putih kotak untuk logo
-                const whiteSize = logoSize + 12; // Kurangi padding menjadi 12 pixel di setiap sisi
+                const whiteSize = logoSize + 8; // Kurangi padding menjadi 8 pixel di setiap sisi
                 const whiteSquare = await sharp({
                     create: {
                         width: whiteSize,
