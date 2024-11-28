@@ -199,8 +199,8 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
 
                 // Posisi kotak putih di tengah QR code
                 const whitePosition = {
-                    left: Math.floor((metadata.width - whiteSize) / 2),
-                    top: Math.floor((metadata.height - whiteSize) / 2)
+                    left: Math.floor(metadata.width / 2 - whiteSize / 2),
+                    top: Math.floor(metadata.height / 2 - whiteSize / 2)
                 };
 
                 // Posisi logo di tengah kotak putih
