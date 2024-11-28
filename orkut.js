@@ -185,7 +185,7 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
                 // Buat area putih kotak untuk logo
-                const whiteSize = logoSize + 8; // Kurangi padding menjadi 8 pixel di setiap sisi
+                const whiteSize = logoSize + 7; // Kurangi padding menjadi 8 pixel di setiap sisi
                 const whiteSquare = await sharp({
                     create: {
                         width: whiteSize,
