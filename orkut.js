@@ -1,8 +1,6 @@
 const axios = require('axios');
-const fs = require('fs');
 const FormData = require('form-data');
 const QRCode = require('qrcode');
-const bodyParser = require('body-parser');
 const sharp = require('sharp');
 
 // QR Options untuk kualitas tinggi
@@ -184,9 +182,9 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
 
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
-                // Hitung posisi logo agar tepat di tengah QR Code
-                const logoLeft = Math.floor((metadata.width - logoSize) / 2);
-                const logoTop = Math.floor((metadata.height - logoSize) / 2);
+                // Hitung posisi logo agar tepat di tengah QR Code, menghitung ulang dengan mempertimbangkan margin
+                const logoLeft = Math.floor((metadata.width - logoSize) / 2) - Math.floor(logoSize * 0.15);
+                const logoTop = Math.floor((metadata.height - logoSize) / 2) - Math.floor(logoSize * 0.15);
 
                 // Gabungkan QR dan logo
                 finalQRBuffer = await sharp(buffer)
