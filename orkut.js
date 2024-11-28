@@ -1,26 +1,28 @@
 const axios = require('axios');
+const fs = require('fs');
 const FormData = require('form-data');
 const QRCode = require('qrcode');
+const bodyParser = require('body-parser');
 const sharp = require('sharp');
 
-// QR Options untuk kualitas tinggi
+// QR Options untuk kualitas tinggi dengan penyesuaian margin
 const qrOptions = {
-    errorCorrectionLevel: 'H',  // High error correction untuk logo
+    errorCorrectionLevel: 'H',
     type: 'png',
     quality: 1.0,
-    margin: 4,
+    margin: 2,
     color: {
         dark: '#000000',
         light: '#ffffff',
     },
-    width: 2048,  // Size besar untuk kualitas HD
+    width: 1024,
     rendererOpts: {
         quality: 1.0,
         dpi: 300
     }
 };
 
-// Validasi format gambar (JPG/PNG)
+// Validasi format gambar
 async function validateImageFormat(logoUrl) {
     if (!logoUrl) return false;
     const validFormats = ['.jpg', '.jpeg', '.png'];
@@ -33,19 +35,19 @@ async function processLogo(logoBuffer, size) {
     try {
         let processedImage = sharp(logoBuffer);
 
-        // Resize logo dengan background putih
-        processedImage = processedImage.resize(size, size, {
+        // Resize logo dengan ukuran yang lebih kecil (15% dari QR)
+        processedImage = processedImage.resize(Math.floor(size * 0.15), Math.floor(size * 0.15), {
             fit: 'contain',
-            background: { r: 255, g: 255, b: 255, alpha: 1 }
+            background: { r: 255, g: 255, b: 255, alpha: 0 }
         });
 
-        // Tambah padding putih
+        // Tambah padding minimal
         processedImage = processedImage.extend({
-            top: Math.floor(size * 0.15),
-            bottom: Math.floor(size * 0.15),
-            left: Math.floor(size * 0.15),
-            right: Math.floor(size * 0.15),
-            background: { r: 255, g: 255, b: 255, alpha: 1 }
+            top: Math.floor(size * 0.02),
+            bottom: Math.floor(size * 0.02),
+            left: Math.floor(size * 0.02),
+            right: Math.floor(size * 0.02),
+            background: { r: 255, g: 255, b: 255, alpha: 0 }
         });
 
         processedImage = processedImage.png();
@@ -64,7 +66,7 @@ async function downloadAndProcessLogo(logoUrl, size) {
 
         const response = await axios.get(logoUrl, {
             responseType: 'arraybuffer',
-            timeout: 10000,  // 10 detik timeout
+            timeout: 10000,
             headers: {
                 'Accept': 'image/jpeg,image/png'
             }
@@ -116,9 +118,9 @@ async function elxyzFile(buffer) {
     return new Promise(async (resolve, reject) => {
         try {
             const form = new FormData();
-            form.append("file", buffer, { 
+            form.append("file", buffer, {
                 filename: `qris_${Date.now()}.png`,
-                contentType: "image/png" 
+                contentType: "image/png"
             });
 
             console.log('📤 Mengupload gambar QR...');
@@ -129,7 +131,7 @@ async function elxyzFile(buffer) {
                     'User-Agent': 'QRIS-Generator/1.0',
                     'Accept': 'application/json'
                 },
-                timeout: 30000, // 30 detik timeout
+                timeout: 30000,
                 onUploadProgress: (progressEvent) => {
                     if (progressEvent.lengthComputable) {
                         const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -147,30 +149,25 @@ async function elxyzFile(buffer) {
     });
 }
 
-// Tambahkan informasi transaksi ke QRIS
-function addTransactionInfoToQRIS(qrisString, amount, transactionId, expirationTime) {
-    const step1 = qrisString.slice(0, -4);
-    const step2 = step1.split("5802ID");
-
-    const amountString = amount.toString();
-    const amountData = "54" + ("0" + amountString.length).slice(-2) + amountString;
-    const transactionData = "5303" + transactionId;
-    const expirationData = "6304" + expirationTime.toISOString().slice(0, 16).replace('T', '').replace(/-/g, '').replace(/:/g, '');
-
-    const result = step2[0] + amountData + step2[1] + transactionData + expirationData + convertCRC16(step2[0] + amountData + step2[1] + transactionData + expirationData);
-    return result;
-}
-
-// Create QRIS dengan atau tanpa logo
+// Create QRIS dengan logo yang dioptimasi
 async function createQRIS(amount, customQRISCode, logoUrl = null) {
     try {
+        // Format QRIS string
         let qrisData = customQRISCode;
-        const transactionId = generateTransactionId();
-        const expirationTime = generateExpirationTime();
+        qrisData = qrisData.slice(0, -4);
+        const step1 = qrisData.replace("010211", "010212");
+        const step2 = step1.split("5802ID");
 
-        qrisData = addTransactionInfoToQRIS(qrisData, amount, transactionId, expirationTime);
+        // Proses amount
+        amount = amount.toString();
+        let uang = "54" + ("0" + amount.length).slice(-2) + amount;
+        uang += "5802ID";
 
-        const buffer = await QRCode.toBuffer(qrisData, qrOptions);
+        // Generate QRIS final string
+        const result = step2[0] + uang + step2[1] + convertCRC16(step2[0] + uang + step2[1]);
+        
+        // Generate QR buffer
+        const buffer = await QRCode.toBuffer(result, qrOptions);
         let finalQRBuffer = buffer;
 
         // Proses jika ada logo
@@ -178,21 +175,48 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
             try {
                 const qrImage = sharp(buffer);
                 const metadata = await qrImage.metadata();
-                const logoSize = Math.floor(metadata.width * 0.20); // Logo 20% dari QR
-
+                const logoSize = Math.floor(metadata.width * 0.15);
+                
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
-                // Hitung posisi logo agar tepat di tengah QR Code, menghitung ulang dengan mempertimbangkan margin
-                const logoLeft = Math.floor((metadata.width - logoSize) / 2) - Math.floor(logoSize * 0.15);
-                const logoTop = Math.floor((metadata.height - logoSize) / 2) - Math.floor(logoSize * 0.15);
+                // Buat area putih yang lebih kecil
+                const whiteAreaSize = Math.floor(logoSize * 1.1);
+                const whiteSquare = await sharp({
+                    create: {
+                        width: whiteAreaSize,
+                        height: whiteAreaSize,
+                        channels: 4,
+                        background: { r: 255, g: 255, b: 255, alpha: 0.9 }
+                    }
+                })
+                .png()
+                .toBuffer();
 
-                // Gabungkan QR dan logo
+                // Hitung posisi tengah yang presisi
+                const center = Math.floor(metadata.width / 2);
+                const whitePosition = {
+                    left: center - Math.floor(whiteAreaSize / 2),
+                    top: center - Math.floor(whiteAreaSize / 2)
+                };
+
+                const logoPosition = {
+                    left: center - Math.floor(logoSize / 2),
+                    top: center - Math.floor(logoSize / 2)
+                };
+
+                // Gabungkan QR, area putih, dan logo
                 finalQRBuffer = await sharp(buffer)
                     .composite([
                         {
+                            input: whiteSquare,
+                            left: whitePosition.left,
+                            top: whitePosition.top,
+                            blend: 'over'
+                        },
+                        {
                             input: processedLogo,
-                            left: logoLeft,
-                            top: logoTop,
+                            left: logoPosition.left,
+                            top: logoPosition.top,
                             blend: 'over'
                         }
                     ])
@@ -201,23 +225,52 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
 
             } catch (logoError) {
                 console.error('Error processing logo:', logoError);
-                finalQRBuffer = buffer;  // Gunakan QR tanpa logo jika error
+                // Fallback ke QR tanpa logo jika ada error
+                finalQRBuffer = buffer;
             }
         }
 
+        // Upload dan return hasil
         const uploadedFile = await elxyzFile(finalQRBuffer);
 
         return {
             qrImage: uploadedFile,
-            qrString: qrisData,
-            transactionId: transactionId,
-            expirationTime: expirationTime
+            qrString: result,
+            transactionId: generateTransactionId(),
+            expirationTime: generateExpirationTime()
         };
     } catch (error) {
         throw new Error(`Gagal create QRIS: ${error.message}`);
     }
 }
 
+// Express route handler example
+async function handleQRISRequest(req, res) {
+    try {
+        const { amount, qrisCode, logoUrl } = req.body;
+        
+        if (!amount || !qrisCode) {
+            return res.status(400).json({
+                success: false,
+                message: 'Amount dan QRIS code harus diisi'
+            });
+        }
+
+        const result = await createQRIS(amount, qrisCode, logoUrl);
+        
+        return res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+}
+
+// Export semua fungsi yang diperlukan
 module.exports = {
     convertCRC16,
     generateTransactionId,
@@ -225,5 +278,6 @@ module.exports = {
     elxyzFile,
     createQRIS,
     validateImageFormat,
+    handleQRISRequest,
     qrOptions
 };
