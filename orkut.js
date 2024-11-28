@@ -180,7 +180,7 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
             try {
                 const qrImage = sharp(buffer);
                 const metadata = await qrImage.metadata();
-                const logoSize = Math.floor(metadata.width * 0.30); // Logo 30% dari QR
+                const logoSize = Math.floor(metadata.width * 0.20); // Logo 20% dari QR
 
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
@@ -194,7 +194,8 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
                         {
                             input: processedLogo,
                             left: logoLeft,
-                            top: logoTop
+                            top: logoTop,
+                            blend: 'over'
                         }
                     ])
                     .png()
