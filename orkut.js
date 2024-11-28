@@ -197,15 +197,15 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
                 .png()
                 .toBuffer();
 
-                // Posisi logo dan area putih kotak
+                // Posisi logo di tengah area putih kotak
                 const whitePosition = {
                     left: Math.floor((metadata.width - whiteSize) / 2),
                     top: Math.floor((metadata.height - whiteSize) / 2)
                 };
 
                 const logoPosition = {
-                    left: Math.floor((whiteSize - logoSize) / 2),
-                    top: Math.floor((whiteSize - logoSize) / 2)
+                    left: Math.floor(whitePosition.left + (whiteSize - logoSize) / 2),
+                    top: Math.floor(whitePosition.top + (whiteSize - logoSize) / 2)
                 };
 
                 // Gabungkan QR, area putih kotak, dan logo
