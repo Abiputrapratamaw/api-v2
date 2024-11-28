@@ -199,14 +199,14 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
 
                 // Posisi kotak putih di tengah QR code
                 const whitePosition = {
-                    left: Math.floor(metadata.width / 2 - whiteSize / 2),
-                    top: Math.floor(metadata.height / 2 - whiteSize / 2)
+                    left: (metadata.width - whiteSize) / 2,
+                    top: (metadata.height - whiteSize) / 2
                 };
 
                 // Posisi logo di tengah kotak putih
                 const logoPosition = {
-                    left: Math.floor(whitePosition.left + (whiteSize - logoSize) / 2),
-                    top: Math.floor(whitePosition.top + (whiteSize - logoSize) / 2)
+                    left: whitePosition.left + (whiteSize - logoSize) / 2,
+                    top: whitePosition.top + (whiteSize - logoSize) / 2
                 };
 
                 // Gabungkan QR, area putih kotak, dan logo
