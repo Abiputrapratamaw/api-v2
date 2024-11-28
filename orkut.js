@@ -185,7 +185,7 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
                 // Buat area putih kotak untuk logo
-                const whiteSize = logoSize + 20; // Tambahkan 20 pixel padding di setiap sisi
+                const whiteSize = logoSize + 12; // Kurangi padding menjadi 12 pixel di setiap sisi
                 const whiteSquare = await sharp({
                     create: {
                         width: whiteSize,
@@ -197,12 +197,13 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
                 .png()
                 .toBuffer();
 
-                // Posisi logo di tengah area putih kotak
+                // Posisi kotak putih di tengah QR code
                 const whitePosition = {
                     left: Math.floor((metadata.width - whiteSize) / 2),
                     top: Math.floor((metadata.height - whiteSize) / 2)
                 };
 
+                // Posisi logo di tengah kotak putih
                 const logoPosition = {
                     left: Math.floor(whitePosition.left + (whiteSize - logoSize) / 2),
                     top: Math.floor(whitePosition.top + (whiteSize - logoSize) / 2)
