@@ -36,17 +36,17 @@ async function processLogo(logoBuffer, size) {
         let processedImage = sharp(logoBuffer);
 
         // Resize logo dengan background putih
-        processedImage = processedImage.resize(size, size, {
+        processedImage = processedImage.resize(size * 0.12, size * 0.12, {
             fit: 'contain',
             background: { r: 255, g: 255, b: 255, alpha: 1 }
         });
 
         // Tambah padding putih
         processedImage = processedImage.extend({
-            top: Math.floor(size * 0.15),
-            bottom: Math.floor(size * 0.15),
-            left: Math.floor(size * 0.15),
-            right: Math.floor(size * 0.15),
+            top: Math.floor(size * 0.2),
+            bottom: Math.floor(size * 0.2),
+            left: Math.floor(size * 0.2),
+            right: Math.floor(size * 0.2),
             background: { r: 255, g: 255, b: 255, alpha: 1 }
         });
 
@@ -180,12 +180,12 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
             try {
                 const qrImage = sharp(buffer);
                 const metadata = await qrImage.metadata();
-                const logoSize = Math.floor(metadata.width * 0.20); // Logo 20% dari QR
+                const logoSize = Math.floor(metadata.width * 0.2); // Logo 20% dari QR
 
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
                 // Buat area putih untuk logo
-                const whiteAreaSize = Math.floor(logoSize * 1.2);
+                const whiteAreaSize = Math.floor(metadata.width);
                 const whiteSquare = await sharp({
                     create: {
                         width: whiteAreaSize,
@@ -199,8 +199,8 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
 
                 // Posisi logo dan area putih
                 const whitePosition = {
-                    left: Math.floor((metadata.width - whiteAreaSize) / 2),
-                    top: Math.floor((metadata.height - whiteAreaSize) / 2)
+                    left: 0,
+                    top: 0
                 };
 
                 const logoPosition = {
