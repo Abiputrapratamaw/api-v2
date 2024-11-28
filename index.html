@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AbiDev - QRIS API Documentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(45deg, #1F2937, #111827); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="gradient-bg text-white py-12">
+        <div class="container mx-auto px-4 text-center">
+            <h1 class="text-4xl font-bold mb-2">QRIS API Documentation</h1>
+            <p class="text-gray-300">By AbiDev</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-12">
+        <!-- 1. Create QRIS -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-bold mb-4">1. Create QRIS Payment</h2>
+            
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-2">Endpoint:</h3>
+                <div class="bg-gray-100 p-3 rounded">
+                    <code>GET /api/orkut/createpayment</code>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-2">Parameters:</h3>
+                <ul class="list-disc list-inside text-gray-600">
+                    <li>amount (required) - Payment amount (e.g., 50000)</li>
+                    <li>codeqr (required) - Your QRIS merchant code</li>
+                    <li>logostore (optional) - URL of your store logo (JPG/PNG)</li>
+                </ul>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-2">Example Request:</h3>
+                <div class="bg-gray-900 text-white p-4 rounded-lg overflow-x-auto">
+                    <code>// Without Logo
+GET /api/orkut/createpayment?amount=50000&codeqr=YOUR_QRIS_CODE
+
+// With Logo
+GET /api/orkut/createpayment?amount=50000&codeqr=YOUR_QRIS_CODE&logostore=https://example.com/logo.png</code>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-2">Example Response:</h3>
+                <div class="bg-gray-900 text-white p-4 rounded-lg overflow-x-auto">
+                    <pre><code>{
+    "status": true,
+    "creator": "AbiDev",
+    "result": {
+        "kodeTransaksi": "QRIS202311287XYZ9ABC",
+        "amount": "50000",
+        "fee": 87,
+        "totalAmount": "50087",
+        "qrImage": {
+            "fileUrl": "https://cdn.elxyz.me/uploads/qr_1701234567890.png"
+        },
+        "qrString": "00020101021226...",
+        "status": "pending",
+        "withLogo": true
+    }
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Check Status -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-bold mb-4">2. Check Payment Status</h2>
+            
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-2">Endpoint:</h3>
+                <div class="bg-gray-100 p-3 rounded">
+                    <code>GET /api/orkut/cekstatus</code>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-2">Parameters:</h3>
+                <ul class="list-disc list-inside text-gray-600">
+                    <li>merchant (required) - Your merchant ID</li>
+                    <li>keyorkut (required) - Your API key</li>
+                    <li>amount (required) - Total amount including fee</li>
+                </ul>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-2">Example Request:</h3>
+                <div class="bg-gray-900 text-white p-4 rounded-lg overflow-x-auto">
+                    <code>GET /api/orkut/cekstatus?merchant=YOUR_MERCHANT_ID&keyorkut=YOUR_API_KEY&amount=50087</code>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-2">Example Response:</h3>
+                <div class="bg-gray-900 text-white p-4 rounded-lg overflow-x-auto">
+                    <pre><code>// Success Response
+{
+    "status": "success"
+}
+
+// Pending Response
+{
+    "status": "pending"
+}</code></pre>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="gradient-bg text-white py-8 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>© 2024 AbiDev. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>
