@@ -197,30 +197,26 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
                 .png()
                 .toBuffer();
 
-                // Posisi kotak putih di tengah QR code
-                const whitePosition = {
-                    left: (metadata.width - whiteSize) / 2,
-                    top: (metadata.height - whiteSize) / 2
-                };
+                // Hitung posisi kotak putih agar tepat di tengah
+                const whiteLeft = (metadata.width - whiteSize) / 2;
+                const whiteTop = (metadata.height - whiteSize) / 2;
 
                 // Posisi logo di tengah kotak putih
-                const logoPosition = {
-                    left: whitePosition.left + (whiteSize - logoSize) / 2,
-                    top: whitePosition.top + (whiteSize - logoSize) / 2
-                };
+                const logoLeft = whiteLeft + (whiteSize - logoSize) / 2;
+                const logoTop = whiteTop + (whiteSize - logoSize) / 2;
 
                 // Gabungkan QR, area putih kotak, dan logo
                 finalQRBuffer = await sharp(buffer)
                     .composite([
                         {
                             input: whiteSquare,
-                            left: whitePosition.left,
-                            top: whitePosition.top
+                            left: whiteLeft,
+                            top: whiteTop
                         },
                         {
                             input: processedLogo,
-                            left: logoPosition.left,
-                            top: logoPosition.top
+                            left: logoLeft,
+                            top: logoTop
                         }
                     ])
                     .png()
