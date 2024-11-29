@@ -5,7 +5,7 @@ const QRCode = require('qrcode');
 const bodyParser = require('body-parser');
 const sharp = require('sharp');
 
-// QR Options untuk kualitas tinggi
+// QR Options dengan style modern
 const qrOptions = {
     errorCorrectionLevel: 'H',
     type: 'png',
@@ -22,52 +22,37 @@ const qrOptions = {
     }
 };
 
-// Fungsi untuk meningkatkan style QR
+// Enhance QR dengan style modern tapi tetap bisa discan
 async function enhanceQRStyle(qrBuffer) {
     try {
-        const moduleSize = 12; // Ukuran module
-        const connectedMask = Buffer.from(`
+        const moduleSize = 8; // Ukuran yang lebih kecil agar lebih rapat
+        const roundedMask = Buffer.from(`
             <svg width="${moduleSize}" height="${moduleSize}">
                 <rect 
-                    x="0"
-                    y="0"
-                    width="${moduleSize}"
-                    height="${moduleSize}"
-                    rx="${moduleSize/4}"
-                    ry="${moduleSize/4}"
+                    x="0" 
+                    y="0" 
+                    width="${moduleSize}" 
+                    height="${moduleSize}" 
+                    rx="2"
+                    ry="2"
                     fill="black"
                 />
             </svg>
         `);
 
+        // Enhance QR dengan style modern
         const enhancedQR = await sharp(qrBuffer)
             .resize(1024, 1024)
-            .threshold(128) // Mempertajam QR
-            .raw()
-            .toBuffer({ resolveWithObject: true })
-            .then(async ({ data, info }) => {
-                return await sharp({
-                    create: {
-                        width: info.width,
-                        height: info.height,
-                        channels: 4,
-                        background: { r: 255, g: 255, b: 255, alpha: 0 }
-                    }
-                })
-                .composite([
-                    {
-                        input: connectedMask,
-                        tile: true,
-                        blend: 'multiply'
-                    },
-                    {
-                        input: qrBuffer,
-                        blend: 'multiply'
-                    }
-                ])
-                .png()
-                .toBuffer();
-            });
+            .threshold(150) // Sedikit lebih tinggi untuk ketajaman yang lebih baik
+            .composite([
+                {
+                    input: roundedMask,
+                    blend: 'multiply',
+                    tile: true
+                }
+            ])
+            .png()
+            .toBuffer();
 
         return enhancedQR;
     } catch (error) {
@@ -76,22 +61,14 @@ async function enhanceQRStyle(qrBuffer) {
     }
 }
 
-// Validasi format gambar
-async function validateImageFormat(logoUrl) {
-    if (!logoUrl) return false;
-    const validFormats = ['.jpg', '.jpeg', '.png'];
-    const fileExt = logoUrl.toLowerCase().split('.').pop();
-    return validFormats.includes(`.${fileExt}`);
-}
-
 // Proses logo dengan rounded corners dan shadow
 async function processLogo(logoBuffer, size) {
     try {
-        const cornerRadius = 15; // Radius sudut
+        const cornerRadius = 15;
         const padding = 10;
         const totalSize = size + (padding * 2);
 
-        // Buat mask untuk rounded corners
+        // Buat roundedMask untuk logo
         const roundedMask = Buffer.from(`
             <svg>
                 <rect
@@ -198,7 +175,14 @@ async function processLogo(logoBuffer, size) {
     }
 }
 
-// Download dan proses logo
+// Fungsi-fungsi lain tetap sama
+async function validateImageFormat(logoUrl) {
+    if (!logoUrl) return false;
+    const validFormats = ['.jpg', '.jpeg', '.png'];
+    const fileExt = logoUrl.toLowerCase().split('.').pop();
+    return validFormats.includes(`.${fileExt}`);
+}
+
 async function downloadAndProcessLogo(logoUrl, size) {
     try {
         if (!await validateImageFormat(logoUrl)) {
@@ -219,7 +203,6 @@ async function downloadAndProcessLogo(logoUrl, size) {
     }
 }
 
-// Generate CRC16 untuk QRIS
 function convertCRC16(str) {
     let crc = 0xFFFF;
     const strlen = str.length;
@@ -240,21 +223,18 @@ function convertCRC16(str) {
     return hex;
 }
 
-// Generate ID transaksi unik
 function generateTransactionId() {
     const timestamp = new Date().getTime().toString().slice(-8);
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `QRIS${timestamp}${random}`;
 }
 
-// Generate waktu kedaluwarsa (5 menit)
 function generateExpirationTime() {
     const expirationTime = new Date();
     expirationTime.setMinutes(expirationTime.getMinutes() + 5);
     return expirationTime;
 }
 
-// Upload file ke CDN
 async function elxyzFile(buffer) {
     return new Promise(async (resolve, reject) => {
         try {
@@ -290,7 +270,6 @@ async function elxyzFile(buffer) {
     });
 }
 
-// Create QRIS dengan style yang dioptimasi
 async function createQRIS(amount, customQRISCode, logoUrl = null) {
     try {
         // Format QRIS string
