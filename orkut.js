@@ -5,7 +5,7 @@ const QRCode = require('qrcode');
 const bodyParser = require('body-parser');
 const sharp = require('sharp');
 
-// QR Options untuk kualitas tinggi dengan penyesuaian margin
+// QR Options untuk kualitas tinggi
 const qrOptions = {
     errorCorrectionLevel: 'H',
     type: 'png',
@@ -22,6 +22,60 @@ const qrOptions = {
     }
 };
 
+// Fungsi untuk meningkatkan style QR
+async function enhanceQRStyle(qrBuffer) {
+    try {
+        const moduleSize = 12; // Ukuran module
+        const connectedMask = Buffer.from(`
+            <svg width="${moduleSize}" height="${moduleSize}">
+                <rect 
+                    x="0"
+                    y="0"
+                    width="${moduleSize}"
+                    height="${moduleSize}"
+                    rx="${moduleSize/4}"
+                    ry="${moduleSize/4}"
+                    fill="black"
+                />
+            </svg>
+        `);
+
+        const enhancedQR = await sharp(qrBuffer)
+            .resize(1024, 1024)
+            .threshold(128) // Mempertajam QR
+            .raw()
+            .toBuffer({ resolveWithObject: true })
+            .then(async ({ data, info }) => {
+                return await sharp({
+                    create: {
+                        width: info.width,
+                        height: info.height,
+                        channels: 4,
+                        background: { r: 255, g: 255, b: 255, alpha: 0 }
+                    }
+                })
+                .composite([
+                    {
+                        input: connectedMask,
+                        tile: true,
+                        blend: 'multiply'
+                    },
+                    {
+                        input: qrBuffer,
+                        blend: 'multiply'
+                    }
+                ])
+                .png()
+                .toBuffer();
+            });
+
+        return enhancedQR;
+    } catch (error) {
+        console.error('Error enhancing QR style:', error);
+        return qrBuffer;
+    }
+}
+
 // Validasi format gambar
 async function validateImageFormat(logoUrl) {
     if (!logoUrl) return false;
@@ -30,27 +84,57 @@ async function validateImageFormat(logoUrl) {
     return validFormats.includes(`.${fileExt}`);
 }
 
-// Proses logo dengan optimasi
+// Proses logo dengan rounded corners dan shadow
 async function processLogo(logoBuffer, size) {
     try {
-        // Buat shadow terlebih dahulu
+        const cornerRadius = 15; // Radius sudut
+        const padding = 10;
+        const totalSize = size + (padding * 2);
+
+        // Buat mask untuk rounded corners
+        const roundedMask = Buffer.from(`
+            <svg>
+                <rect
+                    x="0"
+                    y="0"
+                    width="${totalSize}"
+                    height="${totalSize}"
+                    rx="${cornerRadius}"
+                    ry="${cornerRadius}"
+                    fill="white"
+                />
+            </svg>
+        `);
+
+        // Buat shadow dengan rounded corners
         const shadow = await sharp(logoBuffer)
             .resize(size, size, {
                 fit: 'contain',
                 background: { r: 255, g: 255, b: 255, alpha: 0 }
             })
-            // Ubah warna shadow menjadi hitam transparan
-            .composite([{
-                input: Buffer.from([0, 0, 0, 128]),
-                raw: {
-                    width: 1,
-                    height: 1,
-                    channels: 4
+            .extend({
+                top: padding,
+                bottom: padding,
+                left: padding,
+                right: padding,
+                background: { r: 255, g: 255, b: 255, alpha: 0 }
+            })
+            .composite([
+                {
+                    input: roundedMask,
+                    blend: 'dest-in'
                 },
-                tile: true,
-                blend: 'multiply'
-            }])
-            // Blur untuk efek shadow
+                {
+                    input: Buffer.from([0, 0, 0, 128]),
+                    raw: {
+                        width: 1,
+                        height: 1,
+                        channels: 4
+                    },
+                    tile: true,
+                    blend: 'multiply'
+                }
+            ])
             .blur(5)
             .extend({
                 top: 4,
@@ -62,20 +146,33 @@ async function processLogo(logoBuffer, size) {
             .png()
             .toBuffer();
 
-        // Proses logo utama
-        const logo = await sharp(logoBuffer)
+        // Proses logo utama dengan rounded corners
+        const roundedLogo = await sharp(logoBuffer)
             .resize(size, size, {
                 fit: 'contain',
-                background: { r: 255, g: 255, b: 255, alpha: 0 }
+                background: { r: 255, g: 255, b: 255, alpha: 1 }
             })
+            .extend({
+                top: padding,
+                bottom: padding,
+                left: padding,
+                right: padding,
+                background: { r: 255, g: 255, b: 255, alpha: 1 }
+            })
+            .composite([
+                {
+                    input: roundedMask,
+                    blend: 'dest-in'
+                }
+            ])
             .png()
             .toBuffer();
 
         // Gabungkan shadow dan logo
         const finalLogo = await sharp({
             create: {
-                width: size + 8,
-                height: size + 8,
+                width: totalSize + 8,
+                height: totalSize + 8,
                 channels: 4,
                 background: { r: 255, g: 255, b: 255, alpha: 0 }
             }
@@ -87,7 +184,7 @@ async function processLogo(logoBuffer, size) {
                 left: 2,
             },
             {
-                input: logo,
+                input: roundedLogo,
                 top: 0,
                 left: 0,
             }
@@ -193,7 +290,7 @@ async function elxyzFile(buffer) {
     });
 }
 
-// Create QRIS dengan logo yang dioptimasi
+// Create QRIS dengan style yang dioptimasi
 async function createQRIS(amount, customQRISCode, logoUrl = null) {
     try {
         // Format QRIS string
@@ -212,26 +309,26 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
         
         // Generate QR buffer
         const buffer = await QRCode.toBuffer(result, qrOptions);
-        let finalQRBuffer = buffer;
+        
+        // Enhance QR style
+        const enhancedQR = await enhanceQRStyle(buffer);
+        let finalQRBuffer = enhancedQR;
 
         // Proses jika ada logo
         if (logoUrl) {
             try {
-                const qrImage = sharp(buffer);
-                const metadata = await qrImage.metadata();
-                const logoSize = Math.floor(metadata.width * 0.20); // Ukuran logo 20% dari QR
+                const metadata = await sharp(enhancedQR).metadata();
+                const logoSize = Math.floor(metadata.width * 0.20);
                 
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
-                // Hitung posisi tengah yang presisi
                 const center = Math.floor(metadata.width / 2);
                 const logoPosition = {
-                    left: center - Math.floor((logoSize + 8) / 2), // Tambah 8 untuk mengakomodasi shadow
-                    top: center - Math.floor((logoSize + 8) / 2)
+                    left: center - Math.floor((logoSize + 30) / 2),
+                    top: center - Math.floor((logoSize + 30) / 2)
                 };
 
-                // Gabungkan QR dan logo dengan shadow
-                finalQRBuffer = await sharp(buffer)
+                finalQRBuffer = await sharp(enhancedQR)
                     .composite([
                         {
                             input: processedLogo,
@@ -245,7 +342,7 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
 
             } catch (logoError) {
                 console.error('Error processing logo:', logoError);
-                finalQRBuffer = buffer;
+                finalQRBuffer = enhancedQR;
             }
         }
 
