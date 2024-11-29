@@ -7,7 +7,7 @@ const sharp = require('sharp');
 
 // QR Options untuk kualitas tinggi dengan penyesuaian margin
 const qrOptions = {
-    errorCorrectionLevel: 'L',
+    errorCorrectionLevel: 'Q',
     type: 'png',
     quality: 1.0,
     margin: 2,
