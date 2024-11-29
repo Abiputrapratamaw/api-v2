@@ -5,7 +5,7 @@ const QRCode = require('qrcode');
 const bodyParser = require('body-parser');
 const sharp = require('sharp');
 
-// QR Options dengan style modern
+// QR Options untuk kualitas tinggi
 const qrOptions = {
     errorCorrectionLevel: 'H',
     type: 'png',
@@ -22,37 +22,56 @@ const qrOptions = {
     }
 };
 
-// Enhance QR dengan style modern tapi tetap bisa discan
+// Enhance QR dengan style terhubung
 async function enhanceQRStyle(qrBuffer) {
     try {
-        const moduleSize = 8; // Ukuran yang lebih kecil agar lebih rapat
-        const roundedMask = Buffer.from(`
-            <svg width="${moduleSize}" height="${moduleSize}">
+        // Buat pattern dasar yang terhubung
+        const connectedPattern = Buffer.from(`
+            <svg width="16" height="16">
                 <rect 
                     x="0" 
                     y="0" 
-                    width="${moduleSize}" 
-                    height="${moduleSize}" 
-                    rx="2"
-                    ry="2"
+                    width="16" 
+                    height="16" 
+                    rx="4"
+                    ry="4"
                     fill="black"
                 />
             </svg>
         `);
 
-        // Enhance QR dengan style modern
+        // Enhance QR dengan efek terhubung
         const enhancedQR = await sharp(qrBuffer)
             .resize(1024, 1024)
-            .threshold(150) // Sedikit lebih tinggi untuk ketajaman yang lebih baik
-            .composite([
-                {
-                    input: roundedMask,
-                    blend: 'multiply',
-                    tile: true
-                }
-            ])
-            .png()
-            .toBuffer();
+            .threshold(140)
+            .raw()
+            .toBuffer({ resolveWithObject: true })
+            .then(async ({ data, info }) => {
+                return await sharp({
+                    create: {
+                        width: info.width,
+                        height: info.height,
+                        channels: 4,
+                        background: { r: 255, g: 255, b: 255, alpha: 0 }
+                    }
+                })
+                .composite([
+                    {
+                        input: connectedPattern,
+                        tile: true,
+                        blend: 'multiply'
+                    },
+                    {
+                        input: qrBuffer,
+                        blend: 'multiply'
+                    }
+                ])
+                .resize(1024, 1024, {
+                    kernel: sharp.kernel.nearest
+                })
+                .png()
+                .toBuffer();
+            });
 
         return enhancedQR;
     } catch (error) {
@@ -61,15 +80,24 @@ async function enhanceQRStyle(qrBuffer) {
     }
 }
 
-// Proses logo dengan rounded corners dan shadow
+// Validasi format gambar
+async function validateImageFormat(logoUrl) {
+    if (!logoUrl) return false;
+    const validFormats = ['.jpg', '.jpeg', '.png'];
+    const fileExt = logoUrl.toLowerCase().split('.').pop();
+    return validFormats.includes(`.${fileExt}`);
+}
+
+// Proses logo dengan optimasi
 async function processLogo(logoBuffer, size) {
     try {
-        const cornerRadius = 15;
-        const padding = 10;
+        const cornerRadius = 20; // Radius sudut yang lebih besar
+        const padding = 15;  // Padding yang lebih besar
         const totalSize = size + (padding * 2);
+        const backgroundColor = { r: 64, g: 64, b: 64, alpha: 1 }; // Background abu-abu gelap
 
-        // Buat roundedMask untuk logo
-        const roundedMask = Buffer.from(`
+        // Buat background dengan rounded corners
+        const roundedBg = Buffer.from(`
             <svg>
                 <rect
                     x="0"
@@ -78,111 +106,40 @@ async function processLogo(logoBuffer, size) {
                     height="${totalSize}"
                     rx="${cornerRadius}"
                     ry="${cornerRadius}"
-                    fill="white"
+                    fill="rgb(64,64,64)"
                 />
             </svg>
         `);
 
-        // Buat shadow dengan rounded corners
-        const shadow = await sharp(logoBuffer)
+        // Proses logo dengan background abu-abu
+        const processedLogo = await sharp(logoBuffer)
             .resize(size, size, {
                 fit: 'contain',
-                background: { r: 255, g: 255, b: 255, alpha: 0 }
+                background: { r: 0, g: 0, b: 0, alpha: 0 }
             })
             .extend({
                 top: padding,
                 bottom: padding,
                 left: padding,
                 right: padding,
-                background: { r: 255, g: 255, b: 255, alpha: 0 }
+                background: { r: 64, g: 64, b: 64, alpha: 1 }
             })
             .composite([
                 {
-                    input: roundedMask,
-                    blend: 'dest-in'
-                },
-                {
-                    input: Buffer.from([0, 0, 0, 128]),
-                    raw: {
-                        width: 1,
-                        height: 1,
-                        channels: 4
-                    },
-                    tile: true,
-                    blend: 'multiply'
-                }
-            ])
-            .blur(5)
-            .extend({
-                top: 4,
-                bottom: 4,
-                left: 4,
-                right: 4,
-                background: { r: 255, g: 255, b: 255, alpha: 0 }
-            })
-            .png()
-            .toBuffer();
-
-        // Proses logo utama dengan rounded corners
-        const roundedLogo = await sharp(logoBuffer)
-            .resize(size, size, {
-                fit: 'contain',
-                background: { r: 255, g: 255, b: 255, alpha: 1 }
-            })
-            .extend({
-                top: padding,
-                bottom: padding,
-                left: padding,
-                right: padding,
-                background: { r: 255, g: 255, b: 255, alpha: 1 }
-            })
-            .composite([
-                {
-                    input: roundedMask,
+                    input: roundedBg,
                     blend: 'dest-in'
                 }
             ])
             .png()
             .toBuffer();
 
-        // Gabungkan shadow dan logo
-        const finalLogo = await sharp({
-            create: {
-                width: totalSize + 8,
-                height: totalSize + 8,
-                channels: 4,
-                background: { r: 255, g: 255, b: 255, alpha: 0 }
-            }
-        })
-        .composite([
-            {
-                input: shadow,
-                top: 2,
-                left: 2,
-            },
-            {
-                input: roundedLogo,
-                top: 0,
-                left: 0,
-            }
-        ])
-        .png()
-        .toBuffer();
-
-        return finalLogo;
+        return processedLogo;
     } catch (error) {
         throw new Error(`Gagal memproses logo: ${error.message}`);
     }
 }
 
-// Fungsi-fungsi lain tetap sama
-async function validateImageFormat(logoUrl) {
-    if (!logoUrl) return false;
-    const validFormats = ['.jpg', '.jpeg', '.png'];
-    const fileExt = logoUrl.toLowerCase().split('.').pop();
-    return validFormats.includes(`.${fileExt}`);
-}
-
+// Download dan proses logo
 async function downloadAndProcessLogo(logoUrl, size) {
     try {
         if (!await validateImageFormat(logoUrl)) {
@@ -203,6 +160,7 @@ async function downloadAndProcessLogo(logoUrl, size) {
     }
 }
 
+// Generate CRC16 untuk QRIS
 function convertCRC16(str) {
     let crc = 0xFFFF;
     const strlen = str.length;
@@ -223,18 +181,21 @@ function convertCRC16(str) {
     return hex;
 }
 
+// Generate ID transaksi unik
 function generateTransactionId() {
     const timestamp = new Date().getTime().toString().slice(-8);
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `QRIS${timestamp}${random}`;
 }
 
+// Generate waktu kedaluwarsa (5 menit)
 function generateExpirationTime() {
     const expirationTime = new Date();
     expirationTime.setMinutes(expirationTime.getMinutes() + 5);
     return expirationTime;
 }
 
+// Upload file ke CDN
 async function elxyzFile(buffer) {
     return new Promise(async (resolve, reject) => {
         try {
@@ -270,6 +231,7 @@ async function elxyzFile(buffer) {
     });
 }
 
+// Create QRIS dengan enhanced style
 async function createQRIS(amount, customQRISCode, logoUrl = null) {
     try {
         // Format QRIS string
@@ -287,7 +249,10 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
         const result = step2[0] + uang + step2[1] + convertCRC16(step2[0] + uang + step2[1]);
         
         // Generate QR buffer
-        const buffer = await QRCode.toBuffer(result, qrOptions);
+        const buffer = await QRCode.toBuffer(result, {
+            ...qrOptions,
+            errorCorrectionLevel: 'H',
+        });
         
         // Enhance QR style
         const enhancedQR = await enhanceQRStyle(buffer);
@@ -297,14 +262,14 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
         if (logoUrl) {
             try {
                 const metadata = await sharp(enhancedQR).metadata();
-                const logoSize = Math.floor(metadata.width * 0.20);
+                const logoSize = Math.floor(metadata.width * 0.22);
                 
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
                 const center = Math.floor(metadata.width / 2);
                 const logoPosition = {
-                    left: center - Math.floor((logoSize + 30) / 2),
-                    top: center - Math.floor((logoSize + 30) / 2)
+                    left: center - Math.floor(logoSize / 2),
+                    top: center - Math.floor(logoSize / 2)
                 };
 
                 finalQRBuffer = await sharp(enhancedQR)
