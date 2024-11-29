@@ -12,8 +12,8 @@ const qrOptions = {
     quality: 1.0,
     margin: 2,
     color: {
-        dark: '#ffffff',
-        light: '#000000',
+        dark: '#ffffff', // Warna dots (putih)
+        light: '#000000', // Warna background (hitam)
     },
     width: 1024,
     rendererOpts: {
@@ -22,28 +22,26 @@ const qrOptions = {
     }
 };
 
-// Enhance QR dengan style terhubung
+// Enhance QR dengan style dots
 async function enhanceQRStyle(qrBuffer) {
     try {
-        // Buat pattern dasar yang terhubung
-        const connectedPattern = Buffer.from(`
-            <svg width="16" height="16">
-                <rect 
-                    x="0" 
-                    y="0" 
-                    width="16" 
-                    height="16" 
-                    rx="4"
-                    ry="4"
-                    fill="black"
+        // Buat pattern dots
+        const dotSize = 4;
+        const dotPattern = Buffer.from(`
+            <svg width="${dotSize}" height="${dotSize}">
+                <circle 
+                    cx="${dotSize/2}" 
+                    cy="${dotSize/2}" 
+                    r="${dotSize/4}"
+                    fill="white"
                 />
             </svg>
         `);
 
-        // Enhance QR dengan efek terhubung
+        // Create enhanced QR
         const enhancedQR = await sharp(qrBuffer)
             .resize(1024, 1024)
-            .threshold(140)
+            .threshold(128)
             .raw()
             .toBuffer({ resolveWithObject: true })
             .then(async ({ data, info }) => {
@@ -52,23 +50,20 @@ async function enhanceQRStyle(qrBuffer) {
                         width: info.width,
                         height: info.height,
                         channels: 4,
-                        background: { r: 255, g: 255, b: 255, alpha: 0 }
+                        background: { r: 0, g: 0, b: 0, alpha: 1 }
                     }
                 })
                 .composite([
                     {
-                        input: connectedPattern,
+                        input: dotPattern,
                         tile: true,
-                        blend: 'multiply'
+                        blend: 'over'
                     },
                     {
                         input: qrBuffer,
                         blend: 'multiply'
                     }
                 ])
-                .resize(1024, 1024, {
-                    kernel: sharp.kernel.nearest
-                })
                 .png()
                 .toBuffer();
             });
@@ -91,12 +86,11 @@ async function validateImageFormat(logoUrl) {
 // Proses logo dengan optimasi
 async function processLogo(logoBuffer, size) {
     try {
-        const cornerRadius = 20; // Radius sudut yang lebih besar
-        const padding = 15;  // Padding yang lebih besar
+        const cornerRadius = 20;
+        const padding = 15;
         const totalSize = size + (padding * 2);
-        const backgroundColor = { r: 64, g: 64, b: 64, alpha: 1 }; // Background abu-abu gelap
 
-        // Buat background dengan rounded corners
+        // Background abu-abu untuk logo
         const roundedBg = Buffer.from(`
             <svg>
                 <rect
@@ -111,7 +105,7 @@ async function processLogo(logoBuffer, size) {
             </svg>
         `);
 
-        // Proses logo dengan background abu-abu
+        // Proses logo dengan background gelap
         const processedLogo = await sharp(logoBuffer)
             .resize(size, size, {
                 fit: 'contain',
@@ -249,10 +243,7 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
         const result = step2[0] + uang + step2[1] + convertCRC16(step2[0] + uang + step2[1]);
         
         // Generate QR buffer
-        const buffer = await QRCode.toBuffer(result, {
-            ...qrOptions,
-            errorCorrectionLevel: 'H',
-        });
+        const buffer = await QRCode.toBuffer(result, qrOptions);
         
         // Enhance QR style
         const enhancedQR = await enhanceQRStyle(buffer);
