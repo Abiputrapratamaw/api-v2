@@ -2,6 +2,7 @@ const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
 const QRCode = require('qrcode');
+const bodyParser = require('body-parser');
 const sharp = require('sharp');
 
 // QR Options untuk kualitas tinggi dengan penyesuaian margin
@@ -9,12 +10,12 @@ const qrOptions = {
     errorCorrectionLevel: 'L',
     type: 'png',
     quality: 1.0,
-    margin: 1,
+    margin: 2,
     color: {
         dark: '#000000',
         light: '#ffffff',
     },
-    width: 1500,
+    width: 1024,
     rendererOpts: {
         quality: 1.0,
         dpi: 300
@@ -103,7 +104,7 @@ function generateExpirationTime() {
 }
 
 // Upload file ke CDN
-async function uploadFile(buffer) {
+async function elxyzFile(buffer) {
     return new Promise(async (resolve, reject) => {
         try {
             const form = new FormData();
@@ -164,31 +165,24 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
             try {
                 const qrImage = sharp(buffer);
                 const metadata = await qrImage.metadata();
-                const logoSize = Math.floor(metadata.width * 0.30); // Ukuran logo 30% dari QR
+                const logoSize = Math.floor(metadata.width * 0.20); // Ukuran logo 20% dari QR
                 
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
                 // Hitung posisi tengah yang presisi
                 const center = Math.floor(metadata.width / 2);
-                const cropSize = Math.floor(logoSize * 1.2); // Ukuran crop 20% lebih besar dari logo
+                const logoPosition = {
+                    left: center - Math.floor(logoSize / 2),
+                    top: center - Math.floor(logoSize / 2)
+                };
 
-                // Crop bagian tengah QR code
-                const croppedQR = await qrImage
-                    .extract({
-                        left: center - Math.floor(cropSize / 2),
-                        top: center - Math.floor(cropSize / 2),
-                        width: cropSize,
-                        height: cropSize
-                    })
-                    .toBuffer();
-
-                // Gabungkan QR code yang telah di-crop dengan logo
-                finalQRBuffer = await sharp(croppedQR)
+                // Gabungkan QR dan logo langsung tanpa area putih
+                finalQRBuffer = await sharp(buffer)
                     .composite([
                         {
                             input: processedLogo,
-                            top: Math.floor((cropSize - logoSize) / 2),
-                            left: Math.floor((cropSize - logoSize) / 2),
+                            left: logoPosition.left,
+                            top: logoPosition.top,
                             blend: 'over'
                         }
                     ])
@@ -202,7 +196,7 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
         }
 
         // Upload dan return hasil
-        const uploadedFile = await uploadFile(finalQRBuffer);
+        const uploadedFile = await elxyzFile(finalQRBuffer);
 
         return {
             qrImage: uploadedFile,
@@ -215,12 +209,39 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
     }
 }
 
+// Express route handler
+async function handleQRISRequest(req, res) {
+    try {
+        const { amount, qrisCode, logoUrl } = req.body;
+        
+        if (!amount || !qrisCode) {
+            return res.status(400).json({
+                success: false,
+                message: 'Amount dan QRIS code harus diisi'
+            });
+        }
+
+        const result = await createQRIS(amount, qrisCode, logoUrl);
+        
+        return res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+}
+
 module.exports = {
     convertCRC16,
     generateTransactionId,
     generateExpirationTime,
-    uploadFile,
+    elxyzFile,
     createQRIS,
     validateImageFormat,
+    handleQRISRequest,
     qrOptions
-};
+}; 
