@@ -41,6 +41,9 @@ async function processLogo(logoBuffer, size) {
             background: { r: 255, g: 255, b: 255, alpha: 0 }
         });
 
+        // Bulatkan logo
+        processedImage = processedImage.round();
+
         return await processedImage.png().toBuffer();
     } catch (error) {
         throw new Error(`Gagal memproses logo: ${error.message}`);
