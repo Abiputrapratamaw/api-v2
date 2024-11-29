@@ -115,7 +115,7 @@ async function elxyzFile(buffer) {
 
             console.log('📤 Mengupload gambar QR...');
 
-            const response = await axios.post('https://cdn.elxyz.me/', form, {
+            const response = await axios.post('https://img.elevate.web.id/', form, {
                 headers: {
                     ...form.getHeaders(),
                     'User-Agent': 'QRIS-Generator/1.0',
