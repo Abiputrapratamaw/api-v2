@@ -5,7 +5,7 @@ const QRCode = require('qrcode');
 const bodyParser = require('body-parser');
 const sharp = require('sharp');
 
-// QR Options untuk kualitas tinggi dengan penyesuaian margin
+// QR Options dengan fluid-line dots dan rounded corners
 const qrOptions = {
     errorCorrectionLevel: 'H',
     type: 'png',
@@ -19,6 +19,14 @@ const qrOptions = {
     rendererOpts: {
         quality: 1.0,
         dpi: 300
+    },
+    dots: {
+        type: 'fluid-line',
+        color: '#000000'
+    },
+    corners: {
+        type: 'rounded',
+        color: '#000000'
     }
 };
 
@@ -209,39 +217,12 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
     }
 }
 
-// Express route handler
-async function handleQRISRequest(req, res) {
-    try {
-        const { amount, qrisCode, logoUrl } = req.body;
-        
-        if (!amount || !qrisCode) {
-            return res.status(400).json({
-                success: false,
-                message: 'Amount dan QRIS code harus diisi'
-            });
-        }
-
-        const result = await createQRIS(amount, qrisCode, logoUrl);
-        
-        return res.json({
-            success: true,
-            data: result
-        });
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-}
-
+// Export sesuai dengan yang digunakan di index.js
 module.exports = {
     convertCRC16,
     generateTransactionId,
     generateExpirationTime,
     elxyzFile,
     createQRIS,
-    validateImageFormat,
-    handleQRISRequest,
-    qrOptions
-}; 
+    validateImageFormat
+};
