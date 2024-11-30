@@ -20,7 +20,7 @@
     "tiktokdl": "^0.0.5",
     "form-data": "^4.0.0",
     "sharp": "^0.33.2",
-    "body-parser": "^1.20.2"
-     "qr-code-styling": "^1.6.0"
+    "body-parser": "^1.20.2",
+    "qr-code-styling": "^1.6.0"
   }
 } 
