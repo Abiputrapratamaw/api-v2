@@ -12,7 +12,7 @@ const qrOptions = {
     quality: 1.0,
     margin: 2,
     color: {
-        dark: '#000000',
+        dark: '#FF1493',
         light: '#ffffff',
     },
     width: 1024,
