@@ -22,11 +22,11 @@ const qrOptions = {
     },
     dots: {
         type: 'fluid-line',
-        color: '#000000'
+        color: '#FF1493'
     },
     corners: {
         type: 'rounded',
-        color: '#000000'
+        color: '#FF1493'
     }
 };
 
