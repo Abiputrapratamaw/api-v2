@@ -5,7 +5,7 @@ const QRCode = require('qrcode');
 const bodyParser = require('body-parser');
 const sharp = require('sharp');
 
-// QR Options untuk kualitas tinggi dengan penyesuaian margin
+// Enhanced QR Options dengan fluid style
 const qrOptions = {
     errorCorrectionLevel: 'H',
     type: 'png',
@@ -22,6 +22,49 @@ const qrOptions = {
     }
 };
 
+// Fungsi untuk membuat efek fluid pada QR
+async function createFluidEffect(buffer, options = {}) {
+    const {
+        startColor = '#000000',
+        endColor = '#333333',
+        blurAmount = 0.5,
+        contrast = 1.2,
+        brightness = 1.1
+    } = options;
+
+    const svgOverlay = `
+        <svg width="1024" height="1024">
+            <defs>
+                <filter id="fluid" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+                    <feColorMatrix in="blur" mode="matrix" 
+                        values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -8" result="fluid" />
+                    <feBlend in="SourceGraphic" in2="fluid" mode="normal" />
+                </filter>
+                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:${startColor};stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:${endColor};stop-opacity:1" />
+                </linearGradient>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#gradient)" filter="url(#fluid)" />
+        </svg>`;
+
+    return await sharp(buffer)
+        .grayscale()
+        .composite([{
+            input: Buffer.from(svgOverlay),
+            blend: 'multiply'
+        }])
+        .blur(blurAmount)
+        .modulate({
+            brightness: brightness,
+            saturation: 1.2,
+            contrast: contrast
+        })
+        .png()
+        .toBuffer();
+}
+
 // Validasi format gambar
 async function validateImageFormat(logoUrl) {
     if (!logoUrl) return false;
@@ -35,7 +78,6 @@ async function processLogo(logoBuffer, size) {
     try {
         let processedImage = sharp(logoBuffer);
 
-        // Resize logo dengan ukuran 20% dari QR
         processedImage = processedImage.resize(size, size, {
             fit: 'contain',
             background: { r: 255, g: 255, b: 255, alpha: 0 }
@@ -96,7 +138,7 @@ function generateTransactionId() {
     return `QRIS${timestamp}${random}`;
 }
 
-// Generate waktu kedaluwarsa (5 menit)
+// Generate waktu kedaluwarsa
 function generateExpirationTime() {
     const expirationTime = new Date();
     expirationTime.setMinutes(expirationTime.getMinutes() + 5);
@@ -139,8 +181,8 @@ async function elxyzFile(buffer) {
     });
 }
 
-// Create QRIS dengan logo yang dioptimasi
-async function createQRIS(amount, customQRISCode, logoUrl = null) {
+// Create QRIS dengan fluid style
+async function createQRIS(amount, customQRISCode, logoUrl = null, styleOptions = {}) {
     try {
         // Format QRIS string
         let qrisData = customQRISCode;
@@ -158,45 +200,42 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
         
         // Generate QR buffer
         const buffer = await QRCode.toBuffer(result, qrOptions);
-        let finalQRBuffer = buffer;
+        
+        // Tambahkan efek fluid
+        let fluidQRBuffer = await createFluidEffect(buffer, styleOptions);
 
         // Proses jika ada logo
         if (logoUrl) {
             try {
-                const qrImage = sharp(buffer);
+                const qrImage = sharp(fluidQRBuffer);
                 const metadata = await qrImage.metadata();
-                const logoSize = Math.floor(metadata.width * 0.20); // Ukuran logo 20% dari QR
+                const logoSize = Math.floor(metadata.width * 0.20);
                 
                 const processedLogo = await downloadAndProcessLogo(logoUrl, logoSize);
 
-                // Hitung posisi tengah yang presisi
                 const center = Math.floor(metadata.width / 2);
                 const logoPosition = {
                     left: center - Math.floor(logoSize / 2),
                     top: center - Math.floor(logoSize / 2)
                 };
 
-                // Gabungkan QR dan logo langsung tanpa area putih
-                finalQRBuffer = await sharp(buffer)
-                    .composite([
-                        {
-                            input: processedLogo,
-                            left: logoPosition.left,
-                            top: logoPosition.top,
-                            blend: 'over'
-                        }
-                    ])
+                fluidQRBuffer = await sharp(fluidQRBuffer)
+                    .composite([{
+                        input: processedLogo,
+                        left: logoPosition.left,
+                        top: logoPosition.top,
+                        blend: 'over'
+                    }])
                     .png()
                     .toBuffer();
 
             } catch (logoError) {
                 console.error('Error processing logo:', logoError);
-                finalQRBuffer = buffer;
             }
         }
 
         // Upload dan return hasil
-        const uploadedFile = await elxyzFile(finalQRBuffer);
+        const uploadedFile = await elxyzFile(fluidQRBuffer);
 
         return {
             qrImage: uploadedFile,
@@ -212,7 +251,16 @@ async function createQRIS(amount, customQRISCode, logoUrl = null) {
 // Express route handler
 async function handleQRISRequest(req, res) {
     try {
-        const { amount, qrisCode, logoUrl } = req.body;
+        const { 
+            amount, 
+            qrisCode, 
+            logoUrl,
+            startColor,
+            endColor,
+            blurAmount,
+            contrast,
+            brightness 
+        } = req.body;
         
         if (!amount || !qrisCode) {
             return res.status(400).json({
@@ -221,7 +269,15 @@ async function handleQRISRequest(req, res) {
             });
         }
 
-        const result = await createQRIS(amount, qrisCode, logoUrl);
+        const styleOptions = {
+            startColor,
+            endColor,
+            blurAmount,
+            contrast,
+            brightness
+        };
+
+        const result = await createQRIS(amount, qrisCode, logoUrl, styleOptions);
         
         return res.json({
             success: true,
@@ -244,4 +300,4 @@ module.exports = {
     validateImageFormat,
     handleQRISRequest,
     qrOptions
-}; 
+};
